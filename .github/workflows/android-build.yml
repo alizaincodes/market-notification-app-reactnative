@@ -40,6 +40,14 @@ jobs:
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           echo "Installed Android SDK components to $ANDROID_SDK_ROOT"
 
+      - name: Ensure Node dependencies are installed (if package.json present)
+        run: |
+          if [ -f package.json ]; then
+            npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          else
+            echo "package.json not found, skipping npm install"
+          fi
+
       - name: Run Gradle assembleRelease if Android project exists
         id: build
         run: |
