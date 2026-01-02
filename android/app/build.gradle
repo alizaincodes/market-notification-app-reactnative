@@ -93,9 +93,9 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
 
-    namespace "com.tmp_rn_build"
+    namespace "com.example.cryptoalert"
     defaultConfig {
-        applicationId "com.tmp_rn_build"
+        applicationId "com.example.cryptoalert"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -106,7 +106,7 @@ android {
         abi {
             reset()
             enable enableSeparateBuildPerCPUArchitecture
-            universalApk false  // If true, also generate a universal APK
+        universalApk true  // If true, also generate a universal APK
             include (*reactNativeArchitectures())
         }
     }
