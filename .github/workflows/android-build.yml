@@ -19,26 +19,26 @@ jobs:
           java-version: '11'
 
       - name: Install Android SDK command-line tools and required components
-        env:
-          ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
         run: |
           set -e
+          # Ensure we install into the runner's HOME to avoid permission issues
+          ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           sudo apt-get update
           sudo apt-get install -y unzip wget
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          # download latest stable commandlinetools (pin to a known working version)
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          # download a pinned commandline tools archive
           CLI_ZIP=commandlinetools-linux-9477386_latest.zip
           wget -q https://dl.google.com/android/repository/${CLI_ZIP} -O /tmp/${CLI_ZIP}
           unzip -q /tmp/${CLI_ZIP} -d /tmp/cmdline
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-          mv /tmp/cmdline/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
-          # install platform-tools, platform and build-tools
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv /tmp/cmdline/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
+          export PATH=$PATH:"$ANDROID_SDK_ROOT/cmdline-tools/latest/bin":"$ANDROID_SDK_ROOT/platform-tools"
+          # install platform-tools, platform and build-tools using sdkmanager
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
           # accept licenses
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          echo "Installed Android SDK components"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          echo "Installed Android SDK components to $ANDROID_SDK_ROOT"
 
       - name: Run Gradle assembleRelease if Android project exists
         id: build
