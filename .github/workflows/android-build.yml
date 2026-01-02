@@ -71,8 +71,34 @@ jobs:
             cp android/app/build/outputs/apk/**/*.apk "$ARTIFACT_DIR/" || true
             echo "apk_exists=true" >> $GITHUB_OUTPUT
           else
-            echo "android/gradlew not found — skipping build"
-            echo "apk_exists=false" >> $GITHUB_OUTPUT
+            echo "android/gradlew not found — creating a temporary React Native project and building there"
+            # Create a temporary RN project, copy JS sources, install and build
+            TMP_DIR="tmp_rn_build"
+            RN_VERSION="0.71.10"
+            npx react-native init "$TMP_DIR" --version "$RN_VERSION" --directory "$TMP_DIR"
+            # copy app JS files into temp project
+            cp -r ./src "$TMP_DIR/" || true
+            cp App.js index.js app.json package.json "$TMP_DIR/" || true
+            # Install dependencies in temp project
+            pushd "$TMP_DIR"
+            # ensure correct node_modules
+            npm install --no-audit --no-fund
+            # inject splits block into generated android build.gradle for universal APK
+            if [ -f android/app/build.gradle ]; then
+              if ! grep -q "splits\s*{" android/app/build.gradle; then
+                awk 'BEGIN{insert=0}
+                /buildTypes\s*\{/ && insert==0 {print "        splits {\n            abi {\n                enable true\n                reset()\n                include \"armeabi-v7a\", \"arm64-v8a\", \"x86\", \"x86_64\"\n                universalApk true\n            }\n        }"; insert=1}
+                {print}' android/app/build.gradle > android/app/build.gradle.tmp && mv android/app/build.gradle.tmp android/app/build.gradle
+              fi
+            fi
+            chmod +x android/gradlew
+            cd android
+            ./gradlew assembleRelease --no-daemon
+            cd ../..
+            # copy built APKs back to artifacts
+            cp "$TMP_DIR/android/app/build/outputs/apk/**/*.apk" "$ARTIFACT_DIR/" || true
+            popd
+            echo "apk_exists=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Check for APKs
