@@ -18,12 +18,27 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Install Android SDK (cmdline-tools)
-        uses: r0adkll/install-android-sdk@v2
-        with:
-          api-levels: 33
-          build-tools: '33.0.2'
-          components: 'platform-tools'
+      - name: Install Android SDK command-line tools and required components
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.home }}/Android/Sdk
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y unzip wget
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          # download latest stable commandlinetools (pin to a known working version)
+          CLI_ZIP=commandlinetools-linux-9477386_latest.zip
+          wget -q https://dl.google.com/android/repository/${CLI_ZIP} -O /tmp/${CLI_ZIP}
+          unzip -q /tmp/${CLI_ZIP} -d /tmp/cmdline
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv /tmp/cmdline/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
+          # install platform-tools, platform and build-tools
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          # accept licenses
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          echo "Installed Android SDK components"
 
       - name: Run Gradle assembleRelease if Android project exists
         id: build
