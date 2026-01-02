@@ -67,8 +67,13 @@ jobs:
             # Use no-daemon to avoid hanging on CI
             ./gradlew assembleRelease --no-daemon
             cd ..
-            # copy any generated APKs to artifacts dir
-            cp android/app/build/outputs/apk/**/*.apk "$ARTIFACT_DIR/" || true
+            # copy any generated APKs/AABs to artifacts dir
+            cp -v android/app/build/outputs/apk/**/*.apk "$ARTIFACT_DIR/" 2>/dev/null || true
+            cp -v android/app/build/outputs/bundle/**/*.aab "$ARTIFACT_DIR/" 2>/dev/null || true
+            # zip the outputs as a fallback
+            if ls android/app/build/outputs/apk/**/*.apk 1> /dev/null 2>&1 || ls android/app/build/outputs/bundle/**/*.aab 1> /dev/null 2>&1; then
+              zip -r "$ARTIFACT_DIR/build-outputs.zip" android/app/build/outputs || true
+            fi
             echo "apk_exists=true" >> $GITHUB_OUTPUT
           else
             echo "android/gradlew not found — creating a temporary React Native project and building there"
@@ -95,8 +100,13 @@ jobs:
             cd android
             ./gradlew assembleRelease --no-daemon
             cd ../..
-            # copy built APKs back to artifacts
-            cp "$TMP_DIR/android/app/build/outputs/apk/**/*.apk" "$ARTIFACT_DIR/" || true
+            # copy built APKs/AABs back to artifacts
+            cp -v "$TMP_DIR/android/app/build/outputs/apk/**/*.apk" "$ARTIFACT_DIR/" 2>/dev/null || true
+            cp -v "$TMP_DIR/android/app/build/outputs/bundle/**/*.aab" "$ARTIFACT_DIR/" 2>/dev/null || true
+            # zip outputs as fallback
+            if ls "$TMP_DIR/android/app/build/outputs/apk/**/*.apk" 1> /dev/null 2>&1 || ls "$TMP_DIR/android/app/build/outputs/bundle/**/*.aab" 1> /dev/null 2>&1; then
+              zip -r "$ARTIFACT_DIR/build-outputs.zip" "$TMP_DIR/android/app/build/outputs" || true
+            fi
             popd
             echo "apk_exists=true" >> $GITHUB_OUTPUT
           fi
