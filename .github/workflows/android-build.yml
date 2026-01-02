@@ -1,0 +1,77 @@
+name: Android CI - Build APK
+
+on:
+  push:
+    branches: [ main, development ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Install Android SDK (cmdline-tools)
+        uses: r0adkll/install-android-sdk@v2
+        with:
+          api-levels: 33
+          build-tools: '33.0.2'
+          components: 'platform-tools'
+
+      - name: Run Gradle assembleRelease if Android project exists
+        id: build
+        run: |
+          set -e
+          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+          if [ -f android/gradlew ]; then
+            echo "Found android/gradlew — preparing build"
+            # If android/app/build.gradle exists, ensure splits block for universal APK is present
+            if [ -f android/app/build.gradle ]; then
+              echo "Checking android/app/build.gradle for splits..."
+              if grep -q "splits\s*{" android/app/build.gradle; then
+                echo "splits block already present, skipping injection"
+              else
+                echo "Injecting splits block to produce universal APK"
+                # Insert the splits block before the first occurrence of 'buildTypes {'
+                awk 'BEGIN{insert=0}
+                /buildTypes\s*\{/ && insert==0 {print "        splits {\n            abi {\n                enable true\n                reset()\n                include \"armeabi-v7a\", \"arm64-v8a\", \"x86\", \"x86_64\"\n                universalApk true\n            }\n        }"; insert=1}
+                {print}' android/app/build.gradle > android/app/build.gradle.tmp && mv android/app/build.gradle.tmp android/app/build.gradle
+              fi
+            fi
+
+            chmod +x android/gradlew
+            cd android
+            # Use no-daemon to avoid hanging on CI
+            ./gradlew assembleRelease --no-daemon
+            cd ..
+            # copy any generated APKs to artifacts dir
+            cp android/app/build/outputs/apk/**/*.apk "$ARTIFACT_DIR/" || true
+            echo "apk_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "android/gradlew not found — skipping build"
+            echo "apk_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for APKs
+        id: check
+        run: |
+          if ls artifacts/*.apk 1> /dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload APK artifact
+        if: steps.check.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: artifacts/*.apk
